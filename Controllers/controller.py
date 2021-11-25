@@ -3,7 +3,6 @@ from Models.model import Model
 import tkinter as tk
 from tkinter import filedialog
 import pandas as pd
-from pandastable import Table
 import os
 from pathlib import Path
 import io
