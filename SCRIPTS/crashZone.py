@@ -1,23 +1,55 @@
+import bluetooth, subprocess
+import pandas as pd
+import ast
+import Controllers.AiTraining as ai
 
-import socket
 
-adapter_addr = 'e4:a4:71:63:e1:69'
-port = 3  # Normal port for rfcomm?
-buf_size = 1024
+def get_bt_addresses(target_name):
+    huawei_addr = "4C:D1:A1:32:A0:36"
+    target_address = None
 
-s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_STREAM, socket.BTPROTO_RFCOMM)
-s.bind((adapter_addr, port))
-s.listen(1)
-try:
-    print('Listening for connection...')
-    client, address = s.accept()
-    print(f'Connected to {address}')
+    nearby_devices = bluetooth.discover_devices()
+    for bdaddr in nearby_devices:
+        print(bdaddr, " - ", bluetooth.lookup_name(bdaddr))
 
-    while True:
-        data = client.recv(buf_size)
-        if data:
-            print(data)
-except Exception as e:
-    print(f'Something went wrong: {e}')
-    client.close()
-    s.close()
+        if target_name == bluetooth.lookup_name(bdaddr):
+            target_address = bdaddr
+            break
+
+    if target_address is not None:
+        print("found target bluetooth device with address ", target_address)
+        return target_address
+    else:
+        print("could not find bluetooth device")
+
+
+def rfcomm_server():
+    server_sock = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
+
+    port = 1
+    raspi_addr = "B8:27:EB:8F:BC:78"
+    server_sock.bind(("", port))
+    print("bind done")
+
+    server_sock.listen(1)
+    print("listen done")
+
+    client_sock, address = server_sock.accept()
+    print("Accepted connection from ", address)
+
+    data = client_sock.recv(1024)
+    print("received [%s]" % data)
+
+    client_sock.close()
+    server_sock.close()
+
+
+pd.set_option('display.max_columns', 5)
+path = "../DATA/test_data.csv"
+df = pd.read_csv(path)
+df["x_accel"] = pd.eval(df["x_accel"])
+df["y_accel"] = pd.eval(df["y_accel"])
+df["z_accel"] = pd.eval(df["z_accel"])
+df["impedance"] = pd.eval(df["impedance"])
+
+print(df)

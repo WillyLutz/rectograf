@@ -25,6 +25,33 @@ from sklearn.model_selection import KFold
 
 import pickle
 
+def preprocessing_data(df_path, model):
+    if model=="RFC":
+        dfc = pd.read_csv(df_path)
+        dfc.dropna()
+        if "x_accel" in dfc.columns:
+            dfc["x_accel"] = pd.eval(dfc["x_accel"])
+            if "y_accel" in dfc.columns:
+                dfc["y_accel"] = pd.eval(dfc["y_accel"])
+                if "z_accel" in dfc.columns:
+                    dfc["z_accel"] = pd.eval(dfc["z_accel"])
+                    if "impedance" in dfc.columns:
+                        dfc["impedance"] = pd.eval(dfc["impedance"])
+                        if "gesture" in dfc.columns:
+                            return dfc
+                        else:
+                            return "invalid csv file"
+                    else:
+                        return "invalid csv file"
+                else:
+                    return "invalid csv file"
+            else:
+                return "invalid csv file"
+        else:
+            return "invalid csv file"
+    else:
+        pass
+
 
 def save_model(model, filename):
     pickle.dump(model, open(filename, 'wb'))
@@ -82,41 +109,6 @@ def basic_visualization(dataframe):
     sns.violinplot(ax=axes[1, 2], data=dataframe, x="activity", y="z_axis")
 
     plt.show()
-
-
-def dataset_prep(dataframe, show=False):
-    dataframe.z_axis.replace(regex=True, inplace=True, to_replace=r';', value=r'')
-    dataframe['z_axis'] = dataframe.z_axis.astype(np.float64)
-    dataframe.dropna(axis=0, how='any', inplace=True)
-
-    dataframe.drop(dataframe[dataframe["activity"] == "Sitting"].index, inplace=True)
-    dataframe.drop(dataframe[dataframe["activity"] == "Upstairs"].index, inplace=True)
-    dataframe.drop(dataframe[dataframe["activity"] == "Downstairs"].index, inplace=True)
-
-    if show:
-        print(dataframe.info())
-        print(dataframe.head(2))
-
-    return dataframe
-
-
-def get_raw_data(path):
-    column_names = [
-        'user_id',
-        'activity',
-        'timestamp',
-        'x_axis',
-        'y_axis',
-        'z_axis'
-    ]
-    df_original = pd.read_csv(
-        path,
-        header=None,
-        names=column_names
-    )
-
-    df = df_original.copy()
-    return df
 
 
 def support_vector_machine(X, y):
@@ -220,47 +212,33 @@ def keras_model_2(X, y):
     print("Baseline: %.2f%% (%.2f%%)" % (results.mean() * 100, results.std() * 100))
 
 
-def random_forest_classifier(X, y, save=False, n_estimators=100, random_state=0):
+def random_forest_classifier(df, save=False, n_estimators=100, criterion="gini", max_depth=None, min_samples_split=2,
+                             min_samples_leaf=1, min_weight_fraction_leaf=0.0, max_features="auto", max_leaf_nodes=None,
+                             min_impurity_decrease=0.0, bootstrap=True, oob_score=False, n_jobs=None,
+                             random_state=None, verbose=0, warm_start=False, class_weight=None, ccp_alpha=0.0,
+                             max_samples=None):
     start = time.time()
-    X_rf = X.copy()
-    y_rf = y.copy()
+    X = df[["x_accel", "y_accel", "z_accel", "impedance"]]
+    y = df["gesture"]
+    Xc = X.copy()
+    yc = y.copy()
 
-    X_rf_train, X_rf_test, y_rf_train, y_rf_test = train_test_split(X_rf, y_rf)
+    Xc_train, Xc_test, yc_train, yc_test = train_test_split(Xc, yc)
 
-    clf = RandomForestClassifier(random_state=random_state, n_estimators=n_estimators)
-    clf.fit(X_rf_train, y_rf_train)
+    clf = RandomForestClassifier(n_estimators=n_estimators, criterion=criterion, max_depth=max_depth,
+                                 min_samples_split=min_samples_split, min_samples_leaf=min_samples_leaf,
+                                 min_weight_fraction_leaf=min_weight_fraction_leaf, max_features=max_features,
+                                 max_leaf_nodes=max_leaf_nodes, min_impurity_decrease=min_impurity_decrease,
+                                 bootstrap=bootstrap, oob_score=oob_score, n_jobs=n_jobs, random_state=random_state,
+                                 verbose=verbose, warm_start=warm_start, class_weight=class_weight, ccp_alpha=ccp_alpha,
+                                 max_samples=max_samples)
+    clf.fit(Xc_train, yc_train)
 
     print("Training scores")
-    print(clf.score(X_rf_train, y_rf_train))
+    print(clf.score(Xc_train, yc_train))
 
     print("------------------Training time : %s seconds ------------------" % (time.time() - start))
     if save:
-        return clf
-
-
-if __name__ == '__main__':
-
-    df = dataset_prep(get_raw_data('Models/DATA/WISDM/WISDM_ar_v1_1_raw.txt'))
-    # basic_visualization(df)
-    df.to_csv("DATA/WISDM/WISDM.csv")
-    X = df[["timestamp", "x_axis", "y_axis", "z_axis"]]
-    y = df["activity"]
-
-    X_scaled = scale_dataset(df)
-
-    X_train, X_test, y_train, y_test = train_test_split(X_scaled, y)
-
-
-    # save_model(random_forest_classifier(X_scaled, y, save=True), "AiModels/RFC_model.sav")
-
-
-    # model = load_model("AiModels/RFC_model.sav")
-    #n_estimators = [10, 100, 500]
-    #random_state = [0, 1, 5]
-    #for n in n_estimators:
-    #    for r in random_state:
-    #        print(f" n_estimator = {n} - random_state = {r}")
-    #        test_model(random_forest_classifier(X_scaled, y, save=True), X_test, y_test)
-
+        save_model(clf, "AiModels/RFC_model.sav")
 
 

@@ -1,4 +1,4 @@
-from Views.view import View
+from Views.mainView import View
 from Models.model import Model
 from Controllers.controller import Controller
 import tkinter as tk
